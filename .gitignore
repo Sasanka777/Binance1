@@ -1,0 +1,29 @@
+# Secrets — NEVER push these
+.env
+.env.example
+.env.*
+
+# Runtime state / logs
+state.json
+state.json.bak
+state.json.tmp
+trades.csv
+trades.csv.bak
+bot.log
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+.venv/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
