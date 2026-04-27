@@ -12,6 +12,13 @@ trades.csv.bak
 bot.log
 *.log
 
+# Telegram bot runtime
+*.session
+*.session-journal
+signals.csv
+tg_trades.csv
+tg_bot.log
+
 # Python
 __pycache__/
 *.py[cod]

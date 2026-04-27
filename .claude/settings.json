@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c \"import ast; ast.parse\\(open\\('config.py'\\).read\\(\\)\\); ast.parse\\(open\\('strategy.py'\\).read\\(\\)\\); print\\('OK'\\)\")"
+      "Bash(python -c \"import ast; ast.parse\\(open\\('config.py'\\).read\\(\\)\\); ast.parse\\(open\\('strategy.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c 'import ast; ast.parse\\(open\\('\\\\''__TRACKED_VAR__'\\\\''\\).read\\(\\)\\); print\\('\\\\''OK: __TRACKED_VAR__'\\\\''\\)')"
+    ],
+    "additionalDirectories": [
+      "d:\\Binance"
     ]
   }
 }

@@ -2,3 +2,4 @@ python-binance>=1.0.19
 pandas>=2.0.0
 numpy>=1.24.0
 python-dotenv>=1.0.0
+telethon>=1.34.0
