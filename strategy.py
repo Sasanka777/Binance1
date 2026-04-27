@@ -105,11 +105,15 @@ def check_long_entry(df: pd.DataFrame, last_24h_high: float) -> tuple[bool, str]
     if any(pd.isna(last[c]) for c in required) or pd.isna(prev["rsi"]):
         return False, "indicators not warm"
 
-    # 1. Trend alignment
-    if not (last["ema21"] > last["ema55"] > last["ema200"]):
-        return False, "EMAs not stacked bullish"
-    if last["close"] <= last["ema200"]:
-        return False, "close <= EMA200"
+    # 1. Trend alignment — mode-dependent
+    if config.TREND_MODE == "FULL_STACK":
+        if not (last["ema21"] > last["ema55"] > last["ema200"]):
+            return False, "EMAs not stacked bullish"
+        if last["close"] <= last["ema200"]:
+            return False, "close <= EMA200"
+    else:  # SHORT_TERM — only short-term EMAs need to be bullish
+        if not (last["ema21"] > last["ema55"]):
+            return False, "EMA21 not above EMA55 (short-term)"
 
     # 2. EMA separation — filter for actual trend vs crossover noise
     ema_spread = (last["ema21"] - last["ema55"]) / last["close"]
