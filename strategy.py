@@ -136,9 +136,18 @@ def check_long_entry(df: pd.DataFrame, last_24h_high: float) -> tuple[bool, str]
     if last["close"] <= last["ema21"]:
         return False, "close <= EMA21"
 
-    # 6. RSI crossed up through 50 on this candle, not yet overbought
-    if not (prev["rsi"] < config.RSI_CROSS_LEVEL <= last["rsi"]):
-        return False, f"RSI did not cross 50 up (prev={prev['rsi']:.1f}, curr={last['rsi']:.1f})"
+    # 6. RSI momentum check — supports two modes
+    if config.RSI_ENTRY_MODE == "CROSS":
+        # Strict: RSI must cross above 50 on THIS candle (rare event)
+        if not (prev["rsi"] < config.RSI_CROSS_LEVEL <= last["rsi"]):
+            return False, f"RSI did not cross 50 up (prev={prev['rsi']:.1f}, curr={last['rsi']:.1f})"
+    else:
+        # ABOVE: RSI must be >= 50 now AND prev wasn't already deep in OB territory
+        # — this fires whenever momentum is rising, not just the cross instant
+        if last["rsi"] < config.RSI_CROSS_LEVEL:
+            return False, f"RSI {last['rsi']:.1f} below {config.RSI_CROSS_LEVEL}"
+        if prev["rsi"] >= config.RSI_PREV_MAX:
+            return False, f"RSI already extended (prev={prev['rsi']:.1f} >= {config.RSI_PREV_MAX})"
     if last["rsi"] >= config.RSI_MAX_LONG:
         return False, f"RSI too high: {last['rsi']:.1f}"
 
