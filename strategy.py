@@ -111,9 +111,12 @@ def check_long_entry(df: pd.DataFrame, last_24h_high: float) -> tuple[bool, str]
             return False, "EMAs not stacked bullish"
         if last["close"] <= last["ema200"]:
             return False, "close <= EMA200"
-    else:  # SHORT_TERM — only short-term EMAs need to be bullish
+    elif config.TREND_MODE == "SHORT_TERM":
         if not (last["ema21"] > last["ema55"]):
             return False, "EMA21 not above EMA55 (short-term)"
+    else:  # MOMENTUM_ONLY — just require price above fast EMA (any bounce)
+        if last["close"] <= last["ema21"]:
+            return False, "close <= EMA21 (momentum)"
 
     # 2. EMA separation — filter for actual trend vs crossover noise
     ema_spread = (last["ema21"] - last["ema55"]) / last["close"]

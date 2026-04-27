@@ -42,10 +42,12 @@ BB_STD = 2.0
 # fewer trades — original conservative defaults).
 # ---------------------------------------------------------------------------
 # Trend filter mode:
-#   "FULL_STACK"  - require EMA21 > EMA55 > EMA200 (strict, only strong uptrends)
-#   "SHORT_TERM"  - require EMA21 > EMA55 only (catches short-term momentum
-#                   even in sideways/down-trending markets — many more trades)
-TREND_MODE = "SHORT_TERM"      # STRICT: "FULL_STACK"
+#   "FULL_STACK"      - EMA21 > EMA55 > EMA200 (strict, strong uptrends only)
+#   "SHORT_TERM"      - EMA21 > EMA55 only (short-term momentum)
+#   "MOMENTUM_ONLY"   - just require close > EMA21 (catches any bounce off
+#                       fast EMA, fires in sideways/down markets — most trades,
+#                       lowest win rate, useful for testing or active markets)
+TREND_MODE = "MOMENTUM_ONLY"   # STRICT: "FULL_STACK"
 ADX_THRESHOLD = 18.0           # STRICT: 25.0  (lower = trade weaker trends)
 RSI_CROSS_LEVEL = 50.0
 RSI_PREV_MAX = 60.0            # in ABOVE mode, prev RSI must be < this

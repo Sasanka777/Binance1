@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import ast; ast.parse\\(open\\('config.py'\\).read\\(\\)\\); ast.parse\\(open\\('strategy.py'\\).read\\(\\)\\); print\\('Both files parse OK'\\)\")"
+    ]
+  }
+}
