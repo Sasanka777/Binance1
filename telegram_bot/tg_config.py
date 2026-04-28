@@ -34,10 +34,15 @@ FUTURES_TESTNET = True
 # ---------------------------------------------------------------------------
 # Trading safety knobs — start conservative, tune later
 # ---------------------------------------------------------------------------
-PAPER_MODE = True                  # True = log signals, do NOT place real orders
-LEVERAGE_CAP = 5                   # never exceed regardless of signal
+PAPER_MODE = False                 # True = log signals, do NOT place real orders
+# Leverage strategy:
+#   "MAX"  - use signal's max leverage (most aggressive, what signal allows)
+#   "MIN"  - use signal's min leverage (most conservative)
+#   "MID"  - use average of min/max
+LEVERAGE_USE = "MAX"
+LEVERAGE_CAP = 25                  # absolute sanity ceiling (testnet only)
 RISK_PER_TRADE_PCT = 0.01          # 1 % of account at risk per trade
-MAX_POSITION_USDT = 100.0          # cap notional per trade
+MAX_POSITION_USDT = 1000.0         # cap notional per trade ($1k of $100k testnet)
 ALLOWED_QUOTES = ["USDT"]
 BLACKLIST_BASES: list[str] = []    # e.g. ["DOGE", "SHIB"] — symbols to skip
 SIGNAL_MAX_AGE_SEC = 600           # ignore signals > 10 min old

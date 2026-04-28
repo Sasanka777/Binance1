@@ -121,11 +121,16 @@ class SignalBot:
         assert self.fc is not None
         symbol = sig.symbol
 
-        # Use the SIGNAL'S minimum leverage to compute TP price levels (the
-        # author wrote profit % targets assuming THAT leverage). Our actual
-        # position leverage is capped lower for safety — that just changes
-        # our $ return at those price levels, not the level itself.
-        signal_lev = max(1, sig.leverage_min)
+        # Pick which leverage the signal recommends based on config.
+        # The chosen value is used both to size the position and to compute
+        # TP price levels (signal author assumes that leverage when writing
+        # profit % targets).
+        if config.LEVERAGE_USE == "MIN":
+            signal_lev = max(1, sig.leverage_min)
+        elif config.LEVERAGE_USE == "MID":
+            signal_lev = max(1, (sig.leverage_min + sig.leverage_max) // 2)
+        else:  # "MAX" (default — use the signal's full allowed leverage)
+            signal_lev = max(1, sig.leverage_max)
         our_lev = min(signal_lev, config.LEVERAGE_CAP)
 
         # Set leverage on this symbol
