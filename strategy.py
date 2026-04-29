@@ -118,10 +118,13 @@ def check_long_entry(df: pd.DataFrame, last_24h_high: float) -> tuple[bool, str]
         if last["close"] <= last["ema21"]:
             return False, "close <= EMA21 (momentum)"
 
-    # 2. EMA separation — filter for actual trend vs crossover noise
-    ema_spread = (last["ema21"] - last["ema55"]) / last["close"]
-    if ema_spread < config.MIN_EMA_SPREAD_PCT:
-        return False, f"EMA21/55 spread too tight: {ema_spread:.4%}"
+    # 2. EMA separation — only enforce when we actually require EMA21>EMA55.
+    # In MOMENTUM_ONLY mode this filter would block every counter-trend bounce
+    # because the spread is naturally negative there.
+    if config.TREND_MODE != "MOMENTUM_ONLY":
+        ema_spread = (last["ema21"] - last["ema55"]) / last["close"]
+        if ema_spread < config.MIN_EMA_SPREAD_PCT:
+            return False, f"EMA21/55 spread too tight: {ema_spread:.4%}"
 
     # 3. ADX trend strength + directional agreement
     if last["adx"] < config.ADX_THRESHOLD:
