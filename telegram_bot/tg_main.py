@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from datetime import datetime, timezone
 
 from telethon import TelegramClient, events
@@ -21,6 +22,12 @@ from .tg_futures import FuturesClient
 from .tg_parser import Signal, parse_signal
 
 log = logging.getLogger("tg_bot")
+
+# How often the health task runs and how long of an idle window triggers a soft
+# reconnect. Telethon can silently lose its event subscription after long uptime;
+# resolving the channel by ID and reconnecting fixes it.
+HEALTH_CHECK_INTERVAL_SEC = 300        # 5 min
+STUCK_IDLE_THRESHOLD_SEC = 1800        # 30 min with no messages → soft restart
 
 
 class SignalBot:
@@ -45,6 +52,9 @@ class SignalBot:
             log.info("LIVE MODE — orders will hit Binance Futures Testnet")
         else:
             log.info("PAPER MODE — signals will be logged but no orders placed")
+
+        self.channel_id: int | None = None     # resolved at startup
+        self.last_message_time: float = time.time()
 
     # ------------------------------------------------------------------
     # Telegram message → Signal → action
@@ -150,10 +160,17 @@ class SignalBot:
             log.error("[%s] zero SL distance", symbol)
             return
 
-        risk_amount = balance * config.RISK_PER_TRADE_PCT
-        qty = risk_amount / sl_distance
-        max_qty_notional = config.MAX_POSITION_USDT / entry_price
-        qty = min(qty, max_qty_notional)
+        # Position sizing — fixed-margin mode preferred when configured.
+        if config.FIXED_MARGIN_USDT > 0:
+            # Margin × leverage = notional. e.g. $3 × 20x = $60 position.
+            notional = config.FIXED_MARGIN_USDT * our_lev
+            qty = notional / entry_price
+        else:
+            # Risk-based: 1% of balance, capped by MAX_POSITION_USDT
+            risk_amount = balance * config.RISK_PER_TRADE_PCT
+            qty = risk_amount / sl_distance
+            max_qty_notional = config.MAX_POSITION_USDT / entry_price
+            qty = min(qty, max_qty_notional)
         qty = self.fc.round_qty(symbol, qty)
 
         if qty <= 0:
@@ -214,6 +231,62 @@ class SignalBot:
         })
 
     # ------------------------------------------------------------------
+    # Reliability — health monitor + soft reconnect
+    # ------------------------------------------------------------------
+    async def _resolve_channel(self) -> None:
+        """Resolve channel username → numeric ID (more stable than username for events)."""
+        try:
+            entity = await self.tg.get_entity(config.TG_CHANNEL)
+            self.channel_id = entity.id
+            log.info("Resolved channel %s → id=%s", config.TG_CHANNEL, self.channel_id)
+        except Exception as e:
+            log.error("Could not resolve channel %s: %s — make sure you are subscribed",
+                      config.TG_CHANNEL, e)
+            raise
+
+    async def _soft_reconnect(self) -> None:
+        try:
+            log.warning("Soft reconnect: disconnecting...")
+            await self.tg.disconnect()
+            await asyncio.sleep(5)
+            log.warning("Soft reconnect: reconnecting...")
+            await self.tg.connect()
+            if not await self.tg.is_user_authorized():
+                log.error("Not authorised after reconnect — session may be stale")
+            else:
+                # Re-resolve channel in case the entity cache was wiped
+                await self._resolve_channel()
+                log.info("Soft reconnect complete")
+        except Exception:
+            log.exception("Soft reconnect failed")
+
+    async def _health_loop(self) -> None:
+        """Background: every N seconds verify connectivity and check for stuck state."""
+        while True:
+            try:
+                await asyncio.sleep(HEALTH_CHECK_INTERVAL_SEC)
+                # 1) Lightweight self-check
+                try:
+                    me = await asyncio.wait_for(self.tg.get_me(), timeout=15)
+                    log.debug("Health OK — %s", me.username or me.first_name)
+                except (asyncio.TimeoutError, Exception) as e:
+                    log.warning("Health check failed (%s) — soft reconnect", e)
+                    await self._soft_reconnect()
+                    continue
+
+                # 2) Stuck-state detection: no events for too long → likely lost subscription
+                idle = time.time() - self.last_message_time
+                if idle > STUCK_IDLE_THRESHOLD_SEC:
+                    log.warning("No messages for %.0fs (>%.0fs) — soft reconnect to refresh subscription",
+                                idle, STUCK_IDLE_THRESHOLD_SEC)
+                    await self._soft_reconnect()
+                    self.last_message_time = time.time()  # reset clock
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                log.exception("Health loop error")
+
+    # ------------------------------------------------------------------
     # Entry point
     # ------------------------------------------------------------------
     async def run(self) -> None:
@@ -221,15 +294,28 @@ class SignalBot:
         me = await self.tg.get_me()
         log.info("Telegram connected as %s (id=%s)", me.username or me.first_name, me.id)
 
-        @self.tg.on(events.NewMessage(chats=config.TG_CHANNEL))
+        await self._resolve_channel()
+
+        # Catch-all handler — filter inside by chat_id (resilient to entity-cache drift)
+        @self.tg.on(events.NewMessage())
         async def _handler(event):  # noqa: ARG001
+            self.last_message_time = time.time()  # any inbound activity counts
+            if event.chat_id != self.channel_id:
+                return
             try:
                 await self.on_message(event)
             except Exception:
                 log.exception("handler error")
 
-        log.info("Listening to t.me/%s — paper_mode=%s leverage_cap=%dx",
-                 config.TG_CHANNEL, config.PAPER_MODE, config.LEVERAGE_CAP)
+        log.info(
+            "Listening to t.me/%s (id=%s) — paper_mode=%s leverage_cap=%dx margin=$%s",
+            config.TG_CHANNEL, self.channel_id, config.PAPER_MODE,
+            config.LEVERAGE_CAP, config.FIXED_MARGIN_USDT or "risk-based",
+        )
+
+        # Background reliability monitor
+        asyncio.create_task(self._health_loop())
+
         await self.tg.run_until_disconnected()
 
 

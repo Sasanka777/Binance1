@@ -41,8 +41,15 @@ PAPER_MODE = False                 # True = log signals, do NOT place real order
 #   "MID"  - use average of min/max
 LEVERAGE_USE = "MAX"
 LEVERAGE_CAP = 25                  # absolute sanity ceiling (testnet only)
-RISK_PER_TRADE_PCT = 0.01          # 1 % of account at risk per trade
-MAX_POSITION_USDT = 1000.0         # cap notional per trade ($1k of $100k testnet)
+
+# Position sizing — choose ONE mode:
+# (A) FIXED_MARGIN_USDT > 0 → every trade uses exactly this much capital (margin).
+#     Notional = FIXED_MARGIN_USDT × leverage. Worst-case loss per trade is this $.
+# (B) FIXED_MARGIN_USDT = 0 → fall back to risk-based sizing (RISK_PER_TRADE_PCT
+#     of account, capped at MAX_POSITION_USDT notional).
+FIXED_MARGIN_USDT = 3.0            # $3 capital per trade (testnet test value)
+RISK_PER_TRADE_PCT = 0.01          # 1 % — only used if FIXED_MARGIN_USDT == 0
+MAX_POSITION_USDT = 1000.0         # cap notional — only used if FIXED_MARGIN_USDT == 0
 ALLOWED_QUOTES = ["USDT"]
 BLACKLIST_BASES: list[str] = []    # e.g. ["DOGE", "SHIB"] — symbols to skip
 SIGNAL_MAX_AGE_SEC = 600           # ignore signals > 10 min old
