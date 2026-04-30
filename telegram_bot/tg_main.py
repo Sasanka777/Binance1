@@ -195,23 +195,69 @@ class SignalBot:
                 else entry_price * (1 - price_move)
             tp_prices.append(self.fc.round_price(symbol, tp))
 
-        # Place TP ladder
-        remaining = qty
-        for i, tp_price in enumerate(tp_prices):
-            if i < len(tp_prices) - 1:
-                weight = config.TP_WEIGHTS[i] if i < len(config.TP_WEIGHTS) else 0.2
-                tp_qty = self.fc.round_qty(symbol, qty * weight)
-                tp_qty = min(tp_qty, remaining)
+        # ----- Exit orders — branched by EXIT_STRATEGY ---------------------
+        strat = config.EXIT_STRATEGY
+
+        if strat == "HYBRID":
+            # Small lock at TP1 (covers fees, small profit floor) + trailing
+            # stop on the rest, activated at TP1 so trailing only takes over
+            # after we know the trade is going our way.
+            tp1_qty = self.fc.round_qty(symbol, qty * config.HYBRID_TP1_CLOSE_PCT)
+            if tp1_qty > 0 and tp_prices:
+                try:
+                    self.fc.place_take_profit(symbol, sig.side, tp1_qty, tp_prices[0])
+                    log.info("[%s] TP1 lock %s @ %s", symbol, tp1_qty, tp_prices[0])
+                except Exception as e:
+                    log.error("[%s] TP1 place failed: %s", symbol, e)
+                    tp1_qty = 0
             else:
-                tp_qty = remaining  # last TP gets whatever's left
-            if tp_qty <= 0:
-                continue
-            try:
-                self.fc.place_take_profit(symbol, sig.side, tp_qty, tp_price)
-                log.info("[%s] TP%d %s @ %s", symbol, i + 1, tp_qty, tp_price)
-                remaining -= tp_qty
-            except Exception as e:
-                log.error("[%s] TP%d place failed: %s", symbol, i + 1, e)
+                log.warning("[%s] TP1 qty rounded to 0 — trailing entire position", symbol)
+                tp1_qty = 0
+
+            trail_qty = self.fc.round_qty(symbol, qty - tp1_qty)
+            if trail_qty > 0:
+                activation = tp_prices[0] if tp_prices else None
+                ts = self.fc.place_trailing_stop(
+                    symbol, sig.side, trail_qty,
+                    config.TRAILING_CALLBACK_RATE_PCT,
+                    activation_price=activation,
+                )
+                if ts:
+                    log.info(
+                        "[%s] TRAIL %s callback=%.2f%% activate@%s",
+                        symbol, trail_qty, config.TRAILING_CALLBACK_RATE_PCT, activation,
+                    )
+
+        elif strat == "PURE_TRAILING":
+            # Single trailing stop covering full position, active immediately.
+            ts = self.fc.place_trailing_stop(
+                symbol, sig.side, qty,
+                config.TRAILING_CALLBACK_RATE_PCT,
+                activation_price=None,
+            )
+            if ts:
+                log.info(
+                    "[%s] PURE_TRAIL %s callback=%.2f%% (active from entry)",
+                    symbol, qty, config.TRAILING_CALLBACK_RATE_PCT,
+                )
+
+        else:  # "LADDER" — original 5-TP behaviour
+            remaining = qty
+            for i, tp_price in enumerate(tp_prices):
+                if i < len(tp_prices) - 1:
+                    weight = config.TP_WEIGHTS[i] if i < len(config.TP_WEIGHTS) else 0.2
+                    tp_qty = self.fc.round_qty(symbol, qty * weight)
+                    tp_qty = min(tp_qty, remaining)
+                else:
+                    tp_qty = remaining
+                if tp_qty <= 0:
+                    continue
+                try:
+                    self.fc.place_take_profit(symbol, sig.side, tp_qty, tp_price)
+                    log.info("[%s] TP%d %s @ %s", symbol, i + 1, tp_qty, tp_price)
+                    remaining -= tp_qty
+                except Exception as e:
+                    log.error("[%s] TP%d place failed: %s", symbol, i + 1, e)
 
         # Single SL for full position
         sl_price = self.fc.round_price(symbol, sig.stop_loss)

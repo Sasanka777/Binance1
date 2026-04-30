@@ -54,7 +54,17 @@ ALLOWED_QUOTES = ["USDT"]
 BLACKLIST_BASES: list[str] = []    # e.g. ["DOGE", "SHIB"] — symbols to skip
 SIGNAL_MAX_AGE_SEC = 600           # ignore signals > 10 min old
 
-# Multi-TP exit weights — fraction of position to close at each TP (sums to 1.0)
+# Exit strategy:
+#   "HYBRID"        - close TP1 small lock + trailing stop on rest (LET PROFITS RUN)
+#   "LADDER"        - close 30/25/20/15/10 % at TP1-5 (consistent profits)
+#   "PURE_TRAILING" - no fixed TPs, single trailing stop from entry
+EXIT_STRATEGY = "HYBRID"
+
+# HYBRID-specific:
+HYBRID_TP1_CLOSE_PCT = 0.20            # close 20 % of qty at TP1, trail the rest
+TRAILING_CALLBACK_RATE_PCT = 1.5       # trail distance — 1.5 % drop from peak triggers exit
+
+# LADDER-specific (used only when EXIT_STRATEGY = "LADDER"):
 TP_WEIGHTS = [0.30, 0.25, 0.20, 0.15, 0.10]
 
 # ---------------------------------------------------------------------------

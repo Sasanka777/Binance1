@@ -124,6 +124,46 @@ class FuturesClient:
             workingType="MARK_PRICE",
         )
 
+    def place_trailing_stop(
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        callback_rate_pct: float,
+        activation_price: float | None = None,
+    ) -> dict[str, Any] | None:
+        """
+        Trailing stop that follows the favorable price move, then market-exits
+        when price reverses by `callback_rate_pct` from the peak.
+
+        callback_rate_pct: 0.1 .. 5.0 (Binance valid range)
+        activation_price : exchange waits until mark price hits this before
+                           starting to track the trail. Pass None to start
+                           tracking immediately from current mark price.
+        """
+        # Clamp into Binance's allowed callback range
+        cb = max(0.1, min(5.0, float(callback_rate_pct)))
+        order_side = "SELL" if side == "LONG" else "BUY"
+        params: dict[str, Any] = {
+            "symbol": symbol,
+            "side": order_side,
+            "type": "TRAILING_STOP_MARKET",
+            "quantity": qty,
+            "callbackRate": cb,
+            "reduceOnly": True,
+            "workingType": "MARK_PRICE",
+        }
+        if activation_price is not None:
+            params["activationPrice"] = self.round_price(symbol, activation_price)
+        try:
+            return self.client.futures_create_order(**params)
+        except (BinanceAPIException, BinanceOrderException) as e:
+            log.error(
+                "[%s] trailing stop failed qty=%s cb=%s%% activate=%s: %s",
+                symbol, qty, cb, activation_price, e,
+            )
+            return None
+
     def cancel_all(self, symbol: str) -> None:
         try:
             self.client.futures_cancel_all_open_orders(symbol=symbol)
