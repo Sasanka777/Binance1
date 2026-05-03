@@ -13,7 +13,7 @@ import logging
 import time
 from datetime import datetime, timezone
 
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, utils
 from telethon.tl.custom.message import Message
 
 from . import tg_config as config
@@ -53,7 +53,8 @@ class SignalBot:
         else:
             log.info("PAPER MODE — signals will be logged but no orders placed")
 
-        self.channel_id: int | None = None     # resolved at startup
+        self.channel_id: int | None = None         # raw entity.id
+        self.channel_id_marked: int | None = None  # marked form (-100... for channels)
         self.last_message_time: float = time.time()
 
     # ------------------------------------------------------------------
@@ -293,11 +294,20 @@ class SignalBot:
     # Reliability — health monitor + soft reconnect
     # ------------------------------------------------------------------
     async def _resolve_channel(self) -> None:
-        """Resolve channel username → numeric ID (more stable than username for events)."""
+        """Resolve channel username/id → store BOTH raw and marked id forms.
+
+        Telethon's NewMessage event delivers `event.chat_id` in the "marked"
+        format (e.g. -1001831671434 for channels), while `entity.id` is the
+        raw form (e.g. 1831671434). Storing both lets us match either way.
+        """
         try:
             entity = await self.tg.get_entity(config.TG_CHANNEL)
             self.channel_id = entity.id
-            log.info("Resolved channel %s → id=%s", config.TG_CHANNEL, self.channel_id)
+            self.channel_id_marked = utils.get_peer_id(entity)
+            log.info(
+                "Resolved channel %s → id=%s (marked=%s)",
+                config.TG_CHANNEL, self.channel_id, self.channel_id_marked,
+            )
         except Exception as e:
             log.error("Could not resolve channel %s: %s — make sure you are subscribed",
                       config.TG_CHANNEL, e)
@@ -355,11 +365,13 @@ class SignalBot:
 
         await self._resolve_channel()
 
-        # Catch-all handler — filter inside by chat_id (resilient to entity-cache drift)
+        # Catch-all handler — filter inside by chat_id (resilient to entity-cache drift).
+        # Compare against BOTH raw and marked id forms in case Telethon
+        # delivers either one depending on version / channel type.
         @self.tg.on(events.NewMessage())
         async def _handler(event):  # noqa: ARG001
             self.last_message_time = time.time()  # any inbound activity counts
-            if event.chat_id != self.channel_id:
+            if event.chat_id not in (self.channel_id, self.channel_id_marked):
                 return
             try:
                 await self.on_message(event)
