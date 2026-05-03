@@ -155,7 +155,20 @@ class SignalBot:
             log.error("[%s] zero futures balance", symbol)
             return
 
-        sl_distance = abs(entry_price - sig.stop_loss)
+        # Resolve SL — percentage signals (e.g. "Stop Loss: 75%") need to be
+        # converted to an absolute price using the signal's leverage:
+        #   price_move = sl_pct / 100 / leverage
+        if sig.sl_is_pct:
+            price_move = sig.stop_loss / 100.0 / signal_lev
+            if sig.side == "LONG":
+                sl_price_raw = entry_price * (1 - price_move)
+            else:  # SHORT
+                sl_price_raw = entry_price * (1 + price_move)
+            log.info("[%s] SL %s%% (margin) → %s (price)", symbol, sig.stop_loss, sl_price_raw)
+        else:
+            sl_price_raw = sig.stop_loss
+
+        sl_distance = abs(entry_price - sl_price_raw)
         if sl_distance <= 0:
             log.error("[%s] zero SL distance", symbol)
             return
@@ -259,8 +272,8 @@ class SignalBot:
                 except Exception as e:
                     log.error("[%s] TP%d place failed: %s", symbol, i + 1, e)
 
-        # Single SL for full position
-        sl_price = self.fc.round_price(symbol, sig.stop_loss)
+        # Single SL for full position (using the resolved absolute price)
+        sl_price = self.fc.round_price(symbol, sl_price_raw)
         try:
             self.fc.place_stop_loss(symbol, sig.side, qty, sl_price)
             log.info("[%s] SL %s @ %s", symbol, qty, sl_price)

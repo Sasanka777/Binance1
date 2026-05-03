@@ -20,7 +20,14 @@ for _candidate in (_here / ".env", _here.parent / ".env", _here.parent / ".env.e
 TG_API_ID = int(os.getenv("TG_API_ID", "0"))
 TG_API_HASH = os.getenv("TG_API_HASH", "")
 TG_PHONE = os.getenv("TG_PHONE", "")            # e.g. +94771234567
-TG_CHANNEL = os.getenv("TG_CHANNEL", "cryptopathcommunity")
+# TG_CHANNEL can be either:
+#   - a public username (string): "cryptopathcommunity"
+#   - a numeric channel ID (int): 2247568319  (use this for private channels)
+_tg_channel_raw = os.getenv("TG_CHANNEL", "cryptopathcommunity").strip()
+try:
+    TG_CHANNEL: int | str = int(_tg_channel_raw)
+except ValueError:
+    TG_CHANNEL = _tg_channel_raw
 
 # ---------------------------------------------------------------------------
 # Binance Futures Testnet (https://testnet.binancefuture.com)
