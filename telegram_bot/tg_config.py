@@ -68,8 +68,9 @@ SIGNAL_MAX_AGE_SEC = 600           # ignore signals > 10 min old
 EXIT_STRATEGY = "HYBRID"
 
 # HYBRID-specific:
-HYBRID_TP1_CLOSE_PCT = 0.20            # close 20 % of qty at TP1, trail the rest
-TRAILING_CALLBACK_RATE_PCT = 1.5       # trail distance — 1.5 % drop from peak triggers exit
+HYBRID_TP1_CLOSE_PCT = 0.10            # close 10 % at TP1 (less locked, more rides trail)
+TRAILING_CALLBACK_RATE_PCT = 3.0       # 3 % buffer from peak — survives normal bounces,
+                                       # catches big multi-percent moves that 1.5 % cuts short
 
 # LADDER-specific (used only when EXIT_STRATEGY = "LADDER"):
 TP_WEIGHTS = [0.30, 0.25, 0.20, 0.15, 0.10]
