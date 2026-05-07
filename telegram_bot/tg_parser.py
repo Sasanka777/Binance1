@@ -65,6 +65,13 @@ COIN_SLASH_RE = re.compile(
 PAIR_CONCAT_RE = re.compile(
     r"Pair\s*:\s*([A-Z0-9]{4,16})\b", re.IGNORECASE
 )
+# Format C: "Pair: ABC USDT" (with whitespace between base and quote).
+# Coin allowed 1+ chars to handle short tickers like "M" or "TST"; the quote
+# is required so this won't match "Pair: ABC".
+PAIR_SPACED_RE = re.compile(
+    r"Pair\s*:\s*([A-Z0-9]{1,12})\s+(USDT|USDC|BUSD|FDUSD|TUSD)\b",
+    re.IGNORECASE,
+)
 
 SIDE_RE = re.compile(r"Position\s*:?\s*(LONG|SHORT|BUY|SELL)", re.IGNORECASE)
 ENTRY_RE = re.compile(r"Entry\s*(?:Point|Zone)?\s*:?\s*([^\n]+)", re.IGNORECASE)
@@ -105,12 +112,31 @@ def parse_signal(text: Optional[str]) -> Optional[Signal]:
         return None
 
     # --- Pair / Coin ------------------------------------------------------
+    # Try formats in order: slash → spaced → concatenated. The spaced regex
+    # is checked before concat so "Pair: TST USDT" matches as TST/USDT
+    # (not via concat which would need 4+ chars).
     coin: str | None = None
     quote: str | None = None
+
     m = COIN_SLASH_RE.search(text)
     if m:
         coin, quote = m.group(1).upper(), m.group(2).upper()
-    else:
+
+    if coin is None:
+        m = PAIR_SPACED_RE.search(text)
+        if m:
+            raw_coin = m.group(1).upper()
+            quote = m.group(2).upper()
+            # If the "coin" part already ends with the quote suffix the signal
+            # has redundantly written the full pair before the quote — e.g.
+            # "Pair: MUSDT USDT" really means coin=M, symbol=MUSDT. Strip the
+            # duplicate so we end up with the correct Binance symbol.
+            if raw_coin.endswith(quote) and len(raw_coin) > len(quote):
+                coin = raw_coin[: -len(quote)]
+            else:
+                coin = raw_coin
+
+    if coin is None:
         m = PAIR_CONCAT_RE.search(text)
         if m:
             split = _split_concat_pair(m.group(1))
