@@ -255,6 +255,26 @@ class SignalBot:
                     symbol, qty, config.TRAILING_CALLBACK_RATE_PCT,
                 )
 
+        elif strat == "TP1_QUICK":
+            # Close FULL position at TP1, with a tight SL just outside entry.
+            # Predictable risk/reward — no trailing, no other TPs.
+            if tp_prices:
+                try:
+                    self.fc.place_take_profit(symbol, sig.side, qty, tp_prices[0])
+                    log.info("[%s] TP1_QUICK full close %s @ %s", symbol, qty, tp_prices[0])
+                except Exception as e:
+                    log.error("[%s] TP1_QUICK place failed: %s", symbol, e)
+            # Override the signal SL with our tight buffer-based SL.
+            buf = config.TP1_QUICK_SL_BUFFER_PCT / 100.0
+            if sig.side == "LONG":
+                sl_price_raw = entry_price * (1 - buf)
+            else:  # SHORT
+                sl_price_raw = entry_price * (1 + buf)
+            log.info(
+                "[%s] TP1_QUICK SL override → entry %s ±%.2f%% = %s",
+                symbol, entry_price, config.TP1_QUICK_SL_BUFFER_PCT, sl_price_raw,
+            )
+
         else:  # "LADDER" — original 5-TP behaviour
             remaining = qty
             for i, tp_price in enumerate(tp_prices):

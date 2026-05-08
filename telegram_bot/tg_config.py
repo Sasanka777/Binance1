@@ -65,7 +65,9 @@ SIGNAL_MAX_AGE_SEC = 600           # ignore signals > 10 min old
 #   "HYBRID"        - close TP1 small lock + trailing stop on rest (LET PROFITS RUN)
 #   "LADDER"        - close 30/25/20/15/10 % at TP1-5 (consistent profits)
 #   "PURE_TRAILING" - no fixed TPs, single trailing stop from entry
-EXIT_STRATEGY = "HYBRID"
+#   "TP1_QUICK"     - close FULL position at TP1 + tight buffer SL near entry.
+#                     Fast in, fast out. Small predictable wins, small capped losses.
+EXIT_STRATEGY = "TP1_QUICK"
 
 # HYBRID-specific:
 HYBRID_TP1_CLOSE_PCT = 0.10            # close 10 % at TP1 (less locked, more rides trail)
@@ -74,6 +76,12 @@ TRAILING_CALLBACK_RATE_PCT = 3.0       # 3 % buffer from peak — survives norma
 
 # LADDER-specific (used only when EXIT_STRATEGY = "LADDER"):
 TP_WEIGHTS = [0.30, 0.25, 0.20, 0.15, 0.10]
+
+# TP1_QUICK-specific:
+# SL distance below entry (LONG) or above entry (SHORT) as a % of price.
+# 0.5 % at 20× leverage  =  ~10 % loss on margin per stopped trade.
+# Smaller value = nearer-to-breakeven SL but more frequent stop-outs from noise.
+TP1_QUICK_SL_BUFFER_PCT = 0.5
 
 # ---------------------------------------------------------------------------
 # Logging
