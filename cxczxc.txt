@@ -1,0 +1,8 @@
+Commands ඕන වුණොත් — ඉතා කෙටි ටිකක්
+Command	වැඩේ
+pm2 status	Bot online ද?
+pm2 logs main	Live logs (Ctrl+C exit)
+cat trades.csv	Closed trades
+cat state.json	Open positions
+cd ~/Binance1	Reconnect කරාම මුලින්ම
+සියල්ල type කරන්න, paste නෑ. කෙටියි, easy.

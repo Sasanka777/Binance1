@@ -73,7 +73,12 @@ PAIR_SPACED_RE = re.compile(
     re.IGNORECASE,
 )
 
-SIDE_RE = re.compile(r"Position\s*:?\s*(LONG|SHORT|BUY|SELL)", re.IGNORECASE)
+# Allow non-letter chars (emojis, dots, etc.) between "Position:" and the side
+# word so signals like "Position: 🟢 LONG" still parse.
+SIDE_RE = re.compile(
+    r"Position\s*:?\s*[^A-Za-z\n]*(LONG|SHORT|BUY|SELL)",
+    re.IGNORECASE,
+)
 ENTRY_RE = re.compile(r"Entry\s*(?:Point|Zone)?\s*:?\s*([^\n]+)", re.IGNORECASE)
 
 # TP pattern accepts:  (1) +15%   |   TP1 – 30%   |   TP1: 30%

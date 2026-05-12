@@ -132,6 +132,16 @@ class SignalBot:
         assert self.fc is not None
         symbol = sig.symbol
 
+        # Pre-flight: confirm the symbol exists on Futures before doing anything
+        # else. Many newer/exotic alts are mainnet-only; on testnet we skip
+        # cleanly instead of producing leverage / order errors mid-flow.
+        try:
+            self.fc.filters(symbol)
+        except Exception as e:
+            log.warning("[%s] symbol unavailable on futures testnet — skipping: %s",
+                        symbol, e)
+            return
+
         # Pick which leverage the signal recommends based on config.
         # The chosen value is used both to size the position and to compute
         # TP price levels (signal author assumes that leverage when writing
