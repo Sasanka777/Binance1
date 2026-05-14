@@ -1,9 +1,4 @@
-"""
-Futures auto-bot configuration.
-
-Shares Binance Futures Testnet API keys with the telegram bot (same .env).
-Everything tunable here so the strategy can be tuned without code changes.
-"""
+"""Futures auto-bot configuration."""
 from __future__ import annotations
 
 import os
@@ -16,58 +11,76 @@ for _candidate in (_here / ".env", _here.parent / ".env", _here.parent / ".env.e
         load_dotenv(_candidate, override=False)
 
 # ---------------------------------------------------------------------------
-# Binance Futures Testnet credentials (reuse telegram bot's keys)
+# Binance Futures Testnet credentials (same keys as the telegram bot)
 # ---------------------------------------------------------------------------
 BINANCE_FUTURES_API_KEY = os.getenv("BINANCE_FUTURES_API_KEY", "")
 BINANCE_FUTURES_API_SECRET = os.getenv("BINANCE_FUTURES_API_SECRET", "")
 FUTURES_TESTNET = True
 
 # ---------------------------------------------------------------------------
-# Pair universe — discovered automatically at startup
+# Pair universe — top USDT-M perpetuals, STRICTER than the breakout build
 # ---------------------------------------------------------------------------
-PAIR_UNIVERSE_SIZE = 30                # top N by 24h volume
+PAIR_UNIVERSE_SIZE = 20                # was 30 — fewer, higher-quality pairs
 QUOTE = "USDT"
-EXCLUDE_BASES = ["USDC", "BUSD", "TUSD", "FDUSD", "USDP"]   # skip stable-stable pairs
+MIN_DAILY_VOLUME_USDT = 200_000_000    # only pairs with $200M+ 24h volume
+MIN_SYMBOL_AGE_DAYS = 60               # skip newer-than-2-months listings
+EXCLUDE_BASES = ["USDC", "BUSD", "TUSD", "FDUSD", "USDP", "DAI"]
+# Bad performers from the breakout-run dataset — exclude until proven otherwise
+BLACKLIST_BASES = [
+    "HU", "BU", "AIOT", "NAORIS", "SAPIEN", "PLAY", "CHILLGUY",
+    "USELESS", "AKE", "COLLECT", "SOLV", "SKYAI", "LAB", "RIF",
+    "RDNT", "UB", "PO", "DYM", "FXS", "FIS", "GTC", "SXP", "SAGA",
+]
 
 # ---------------------------------------------------------------------------
-# Timeframe + history
+# Timeframe
 # ---------------------------------------------------------------------------
 INTERVAL = "15m"
-HISTORY_CANDLES = 100                  # per pair, kept in memory
+HISTORY_CANDLES = 120
 
 # ---------------------------------------------------------------------------
-# Entry filters — relaxed for ~5-15 trades/day across 30 pairs
+# Strategy: MEAN REVERSION (oversold bounce / overbought rejection)
 # ---------------------------------------------------------------------------
-BREAKOUT_LOOKBACK = 20                 # candle window for rolling high/low
-VOLUME_MULTIPLIER = 1.5                # volume > 1.5 × SMA
+# RSI extreme zones
 RSI_PERIOD = 14
-RSI_LONG_MIN = 50.0                    # long: RSI in [50, 75] — rising momentum
-RSI_LONG_MAX = 75.0
-RSI_SHORT_MIN = 25.0                   # short: RSI in [25, 50] — falling momentum
-RSI_SHORT_MAX = 50.0
+RSI_OVERSOLD = 25                      # LONG candidate when RSI <= this
+RSI_OVERBOUGHT = 75                    # SHORT candidate when RSI >= this
+
+# Bollinger Bands — price must be outside the band to qualify
+BB_PERIOD = 20
+BB_STD = 2.0
+
+# Volume + volatility filters
+VOLUME_MULTIPLIER = 1.5
+VOLUME_SMA_PERIOD = 20
 ATR_PERIOD = 14
-MIN_ATR_PCT = 0.003                    # 0.3 % — skip dead markets
+MIN_ATR_PCT = 0.004                    # 0.4 % — need real movement to profit
+
+# Reversal candle requirement
+MIN_BODY_ATR_RATIO = 0.3               # body must be >= 0.3 × ATR
 
 # ---------------------------------------------------------------------------
-# Position sizing + exits — TP1_QUICK style
+# Exit (TP1_QUICK style — full position close at TP or SL)
 # ---------------------------------------------------------------------------
-FIXED_MARGIN_USDT = 3.0                # capital per trade
-LEVERAGE = 20                          # fixed 20x
-TP_MARGIN_PCT = 30                     # +30 % margin profit  → +1.5 % price at 20x
-SL_MARGIN_PCT = 10                     # -10 % margin loss   → -0.5 % price at 20x
+LEVERAGE = 20
+TP_MARGIN_PCT = 30                     # +30 % margin profit (1.5 % price move)
+SL_MARGIN_PCT = 25                     # -25 % margin loss (1.25 % price move)
+                                       # MR trades need more room. R:R ≈ 1.2:1.
 
 # ---------------------------------------------------------------------------
-# Risk management
+# Risk
 # ---------------------------------------------------------------------------
-MAX_CONCURRENT = 5                     # max simultaneous open positions
-MAX_DAILY_LOSS_USDT = 30.0             # halt for the day if PnL drops below this
-COOLDOWN_AFTER_TRADE_MIN = 30          # minutes before same pair can re-trade
+FIXED_MARGIN_USDT = 3.0
+MAX_CONCURRENT = 5
+MAX_DAILY_LOSS_USDT = 15.0             # tighter — halt earlier on bad days
+COOLDOWN_AFTER_TRADE_MIN = 60          # 1 h cooldown per pair (was 30 min)
 
 # ---------------------------------------------------------------------------
 # Logging / runtime
 # ---------------------------------------------------------------------------
-SIGNAL_LOG = "fb_signals.csv"          # every accepted/blocked signal
-TRADE_LOG = "fb_trades.csv"            # opened trades
+SIGNAL_LOG = "fb_signals.csv"
+TRADE_LOG = "fb_trades.csv"
 APP_LOG = "fb_bot.log"
+STATE_FILE = "fb_state.json"
 LOG_LEVEL = "INFO"
-POSITION_POLL_SECONDS = 60             # how often to check for closed positions
+POSITION_POLL_SECONDS = 60
