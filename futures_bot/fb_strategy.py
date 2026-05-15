@@ -87,13 +87,18 @@ def check_long(df: pd.DataFrame) -> tuple[bool, str]:
     if any(pd.isna(last[c]) for c in required):
         return False, "indicators not warm"
 
-    # 1. RSI deeply oversold
+    # 1. RSI in oversold-ish zone
     if last["rsi"] > config.RSI_OVERSOLD:
         return False, f"RSI {last['rsi']:.1f} > {config.RSI_OVERSOLD} (not oversold)"
 
-    # 2. Price below lower Bollinger Band (statistically extreme)
-    if last["close"] > last["bb_lower"]:
-        return False, f"close {last['close']:.6g} > BB_lower {last['bb_lower']:.6g}"
+    # 2. Price near the LOWER band — close must be within the bottom
+    # BB_PROXIMITY_PCT fraction of the band range.
+    bb_width = last["bb_upper"] - last["bb_lower"]
+    if bb_width <= 0:
+        return False, "BB width zero"
+    lower_zone = last["bb_lower"] + config.BB_PROXIMITY_PCT * bb_width
+    if last["close"] > lower_zone:
+        return False, f"close {last['close']:.6g} not in lower BB zone (<= {lower_zone:.6g})"
 
     # 3. Reversal signal — green candle
     if last["close"] <= last["open"]:
@@ -129,8 +134,14 @@ def check_short(df: pd.DataFrame) -> tuple[bool, str]:
     if last["rsi"] < config.RSI_OVERBOUGHT:
         return False, f"RSI {last['rsi']:.1f} < {config.RSI_OVERBOUGHT} (not overbought)"
 
-    if last["close"] < last["bb_upper"]:
-        return False, f"close {last['close']:.6g} < BB_upper {last['bb_upper']:.6g}"
+    # Price near the UPPER band — close must be within the top
+    # BB_PROXIMITY_PCT fraction of the band range.
+    bb_width = last["bb_upper"] - last["bb_lower"]
+    if bb_width <= 0:
+        return False, "BB width zero"
+    upper_zone = last["bb_upper"] - config.BB_PROXIMITY_PCT * bb_width
+    if last["close"] < upper_zone:
+        return False, f"close {last['close']:.6g} not in upper BB zone (>= {upper_zone:.6g})"
 
     if last["close"] >= last["open"]:
         return False, "candle not red (no rejection signal)"

@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python -c \"import ast; ast.parse\\(open\\('config.py'\\).read\\(\\)\\); ast.parse\\(open\\('strategy.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
       "Bash(python -c 'import ast; ast.parse\\(open\\('\\\\''__TRACKED_VAR__'\\\\''\\).read\\(\\)\\); print\\('\\\\''OK: __TRACKED_VAR__'\\\\''\\)')",
-      "Bash(mkdir -p \"d:/Binance/futures_bot\" && ls \"d:/Binance/futures_bot\")"
+      "Bash(mkdir -p \"d:/Binance/futures_bot\" && ls \"d:/Binance/futures_bot\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('futures_bot/fb_strategy.py'\\).read\\(\\)\\); ast.parse\\(open\\('futures_bot/fb_config.py'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ],
     "additionalDirectories": [
       "d:\\Binance"

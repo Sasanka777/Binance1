@@ -41,23 +41,24 @@ HISTORY_CANDLES = 120
 # ---------------------------------------------------------------------------
 # Strategy: MEAN REVERSION (oversold bounce / overbought rejection)
 # ---------------------------------------------------------------------------
-# RSI extreme zones
+# RSI zones — relaxed to fire more often (was 25/75, way too strict)
 RSI_PERIOD = 14
-RSI_OVERSOLD = 25                      # LONG candidate when RSI <= this
-RSI_OVERBOUGHT = 75                    # SHORT candidate when RSI >= this
+RSI_OVERSOLD = 35                      # LONG when RSI <= this (was 25)
+RSI_OVERBOUGHT = 65                    # SHORT when RSI >= this (was 75)
 
-# Bollinger Bands — price must be outside the band to qualify
+# Bollinger Bands — entry near the band is enough (don't need full break)
 BB_PERIOD = 20
 BB_STD = 2.0
+BB_PROXIMITY_PCT = 0.30                # close within 30 % of band edge counts
 
 # Volume + volatility filters
-VOLUME_MULTIPLIER = 1.5
+VOLUME_MULTIPLIER = 1.2                # was 1.5 — accept moderate volume
 VOLUME_SMA_PERIOD = 20
 ATR_PERIOD = 14
-MIN_ATR_PCT = 0.004                    # 0.4 % — need real movement to profit
+MIN_ATR_PCT = 0.003                    # 0.3 % — was 0.4 %
 
-# Reversal candle requirement
-MIN_BODY_ATR_RATIO = 0.3               # body must be >= 0.3 × ATR
+# Reversal candle requirement — relaxed
+MIN_BODY_ATR_RATIO = 0.2               # body >= 0.2 × ATR (was 0.3)
 
 # ---------------------------------------------------------------------------
 # Exit (TP1_QUICK style — full position close at TP or SL)
